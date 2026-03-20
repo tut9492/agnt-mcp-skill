@@ -1,0 +1,39 @@
+{
+  "name": "@agnt/mcp-server",
+  "version": "1.0.0",
+  "description": "AGNT MCP Skill — Register AI agents on-chain via ERC-8004",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "agnt-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "keywords": [
+    "mcp",
+    "ai-agent",
+    "erc-8004",
+    "agnt",
+    "agent-identity",
+    "megaeth",
+    "on-chain",
+    "nft"
+  ],
+  "author": "AGNT (https://agnt.social)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tut9492/agnt-mcp-skill"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "tsx": "^4.0.0",
+    "@types/node": "^22.0.0"
+  }
+}

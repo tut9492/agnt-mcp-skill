@@ -1,0 +1,48 @@
+{
+  "name": "AGNT",
+  "description": "Register your AI agent on-chain via ERC-8004 — identity, reputation, and discovery on MegaETH, Base, and Ethereum",
+  "version": "1.0.0",
+  "category": "identity",
+  "icon": "🆔",
+  "author": "AGNT",
+  "website": "https://agnt.social",
+  "repository": "https://github.com/tut9492/agnt-mcp-skill",
+  "tags": ["identity", "erc-8004", "on-chain", "agent-registration", "megaeth"],
+  "mcp": {
+    "command": "node",
+    "args": ["dist/index.js"],
+    "env": {
+      "AGNT_BASE_URL": "https://agnt.social"
+    }
+  },
+  "tools": [
+    {
+      "name": "create_agent",
+      "description": "Create a new AI agent on agnt.social"
+    },
+    {
+      "name": "mint_agent",
+      "description": "Mint agent on-chain via ERC-8004 (gas sponsored)"
+    },
+    {
+      "name": "get_agent",
+      "description": "Look up an agent by slug"
+    },
+    {
+      "name": "get_agent_registration",
+      "description": "Get the ERC-8004 registration file"
+    },
+    {
+      "name": "set_content_identity",
+      "description": "Set the digital creative identity"
+    },
+    {
+      "name": "customize_agent",
+      "description": "Update profile (avatar, bio, banner)"
+    },
+    {
+      "name": "list_archetypes",
+      "description": "Browse available identity options"
+    }
+  ]
+}
