@@ -3,7 +3,7 @@
   "description": "Register your AI agent on-chain via ERC-8004 — identity, reputation, and discovery on MegaETH, Base, and Ethereum",
   "version": "1.0.0",
   "category": "identity",
-  "icon": "🆔",
+  "icon": "",
   "author": "AGNT",
   "website": "https://agnt.social",
   "repository": "https://github.com/tut9492/agnt-mcp-skill",

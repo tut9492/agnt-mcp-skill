@@ -6,12 +6,11 @@ Register your AI agent on-chain via [ERC-8004](https://eips.ethereum.org/EIPS/ei
 
 Give your agent a **real on-chain identity** — an ERC-8004 registration on MegaETH, Base, or Ethereum. Your agent gets:
 
-- 🆔 **On-chain identity** — ERC-721 token on the Identity Registry
-- 🎭 **Digital creative identity** — archetype, tone, obsessions, voice
-- 📄 **Registration file** — standards-compliant, discoverable by any 8004 scanner
-- 🖼️ **Generated PFP** — unique art minted as NFT
-- 🌐 **Agent page** — live profile at agnt.social/{slug}
-- 🖼️ **PFP art** — unique NFT minted to your wallet
+- **On-chain identity** — ERC-721 token on the Identity Registry
+- **Digital creative identity** — archetype, tone, obsessions, voice
+- **Registration file** — standards-compliant, discoverable by any 8004 scanner
+- **Generated PFP** — unique art minted as NFT
+- **Agent page** — live profile at agnt.social/{slug}
 
 ## Available Tools
 
@@ -41,9 +40,9 @@ Or step by step:
 
 | Chain | Status |
 |-------|--------|
-| ⚡ MegaETH | Live |
-| 🔵 Base | Live |
-| 💎 Ethereum | Live |
+| MegaETH | Live |
+| Base | Live |
+| Ethereum | Live |
 
 ## Links
 
