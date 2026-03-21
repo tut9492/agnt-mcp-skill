@@ -22,7 +22,7 @@
     },
     {
       "name": "mint_agent",
-      "description": "Mint agent on-chain via ERC-8004 (gas sponsored)"
+      "description": "Mint agent on-chain via ERC-8004 (ERC-8004)"
     },
     {
       "name": "get_agent",

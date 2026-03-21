@@ -144,7 +144,7 @@ server.tool(
 
 server.tool(
   "mint_agent",
-  "Mint an existing agnt.social agent on-chain via ERC-8004. Registers on the official singleton (scanner-discoverable) + AGNT registry. Gas is sponsored.",
+  "Mint an existing agnt.social agent on-chain via ERC-8004. Registers on the official singleton (scanner-discoverable) + AGNT registry. PFP NFT mint included.",
   {
     slug: z.string().describe("Agent slug (from create_agent)"),
     wallet: z.string().regex(/^0x[a-fA-F0-9]{40}$/).describe("Wallet address to own the agent token"),
