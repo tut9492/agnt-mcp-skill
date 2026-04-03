@@ -143,7 +143,6 @@ server.tool(
   },
   async ({ slug, wallet, chainId, apiKey }: any) => {
     try {
-      // Try platform-sponsored first
       const data = await agntFetch("/api/agent/mint-onchain", {
         method: "POST",
         body: { slug, wallet, chainId },
@@ -154,25 +153,15 @@ server.tool(
         success: true,
         agentId: data.official_agent_id || data.onchain_id,
         txHash: data.birth_tx,
-        chain: chainId,
-        registry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+        chain: data.chain,
+        chainId: data.chainId,
+        registry: data.registry,
+        wallet: data.wallet,
+        explorer: data.explorer,
         profileUrl: `${AGNT_BASE_URL}/${slug}`,
-        registrationUrl: `${AGNT_BASE_URL}/api/agent/${slug}/registration.json`,
+        registrationUrl: data.registration_url,
       });
     } catch (e: any) {
-      // If platform minting not configured, return instructions for agent to self-mint
-      if (e.message?.includes("not configured")) {
-        return toolResult({
-          success: false,
-          action_required: "self_mint",
-          instructions: "Platform-sponsored minting is not available. The agent must call the ERC-8004 registry contract directly.",
-          contract: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
-          chain: chainId,
-          function: "register(string agentURI)",
-          agentURI: `${AGNT_BASE_URL}/api/agent/${slug}/registration.json`,
-          after_mint: "Call the register-minted endpoint to record the on-chain ID: POST /api/agent/register-minted with {slug, chainId, agentId, txHash, walletAddress}",
-        });
-      }
       return toolError(e);
     }
   }
