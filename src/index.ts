@@ -182,15 +182,13 @@ server.tool(
 
 server.tool(
   "mint_glyph",
-  "Mint the agent's PFP as a fully on-chain SVG NFT (AGNT Glyph) on MegaETH. Converts the existing PFP to pixel art SVG and stores it permanently in the contract. Free on MegaETH.",
+  "Mint the agent's PFP as a fully on-chain SVG NFT (AGNT Glyph) on MegaETH. Converts the existing PFP to pixel art SVG and stores it permanently in the contract. Free.",
   {
     slug: z.string().describe("Agent slug"),
     walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional().describe("Wallet to receive the glyph NFT (defaults to platform wallet)"),
-    paymentTxHash: z.string().optional().describe("Payment transaction hash if mint price is set (currently free)"),
     apiKey: z.string().optional().describe("Agent's API key"),
-    sessionToken: z.string().optional().describe("Session token"),
   },
-  async ({ slug, walletAddress, paymentTxHash, apiKey, sessionToken }: any) => {
+  async ({ slug, walletAddress, apiKey }: any) => {
     try {
       // Check current mint status first
       const status = await agntFetch(`/api/agent/mint-pfp?slug=${slug}`);
@@ -203,17 +201,13 @@ server.tool(
         });
       }
 
-      // If mint price is 0 (free), no payment needed
-      // If mint price > 0, paymentTxHash is required
       const body: Record<string, unknown> = { slug };
       if (walletAddress) body.walletAddress = walletAddress;
-      if (paymentTxHash) body.paymentTxHash = paymentTxHash;
 
       const data = await agntFetch("/api/agent/mint-pfp", {
         method: "POST",
         body,
         apiKey,
-        sessionToken,
       });
 
       return toolResult({
