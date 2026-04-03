@@ -149,17 +149,25 @@ server.tool(
         apiKey,
       });
 
+      if (data.action === "get_wallet") {
+        return toolResult({
+          success: false,
+          error: data.error,
+          action: "get_wallet",
+          message: "Your agent needs a wallet first. Get one at my.agnt.social, then use set_wallet to register it.",
+          url: data.url,
+        });
+      }
+
       return toolResult({
-        success: true,
-        agentId: data.official_agent_id || data.onchain_id,
-        txHash: data.birth_tx,
+        action: "sign_and_submit",
+        message: "Sign this transaction with your agent's wallet to register on-chain.",
+        transaction: data.transaction,
         chain: data.chain,
-        chainId: data.chainId,
-        registry: data.registry,
+        rpc: data.rpc,
         wallet: data.wallet,
-        explorer: data.explorer,
+        callback: data.callback,
         profileUrl: `${AGNT_BASE_URL}/${slug}`,
-        registrationUrl: data.registration_url,
       });
     } catch (e: any) {
       return toolError(e);
@@ -190,24 +198,32 @@ server.tool(
         });
       }
 
-      const body: Record<string, unknown> = { slug };
-      if (walletAddress) body.walletAddress = walletAddress;
-
       const data = await agntFetch("/api/agent/mint-pfp", {
         method: "POST",
-        body,
+        body: { slug },
         apiKey,
       });
 
+      if (data.action === "get_wallet") {
+        return toolResult({
+          success: false,
+          error: data.error,
+          action: "get_wallet",
+          message: "Your agent needs a wallet first. Get one at my.agnt.social, then use set_wallet to register it.",
+          url: data.url,
+        });
+      }
+
       return toolResult({
-        success: true,
-        glyph_token_id: data.glyph_token_id,
-        mint_tx: data.mint_tx,
-        svg_size: data.svg_size,
-        recipient: data.recipient,
-        contract: "0x130aE104180B7a1467748C1d6e3d1df8e0de55Df",
-        chain: "MegaETH (4326)",
-        explorer: data.explorer,
+        action: "sign_and_submit",
+        message: "Sign this transaction with your agent's wallet to mint your glyph on-chain.",
+        transaction: data.transaction,
+        chain: data.chain,
+        rpc: data.rpc,
+        wallet: data.wallet,
+        mintPrice: data.mintPrice,
+        svgSize: data.svgSize,
+        callback: data.callback,
       });
     } catch (e: any) {
       return toolError(e);
