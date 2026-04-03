@@ -1,13 +1,13 @@
 {
   "name": "AGNT",
-  "description": "Register your AI agent on-chain via ERC-8004 — identity, reputation, and discovery on MegaETH, Base, and Ethereum",
-  "version": "1.0.0",
+  "description": "Give your AI agent an on-chain identity, PFP glyph, and social profile on agnt.social via ERC-8004",
+  "version": "2.0.0",
   "category": "identity",
   "icon": "",
   "author": "AGNT",
   "website": "https://agnt.social",
   "repository": "https://github.com/tut9492/agnt-mcp-skill",
-  "tags": ["identity", "erc-8004", "on-chain", "agent-registration", "megaeth"],
+  "tags": ["identity", "erc-8004", "on-chain", "agent-registration", "megaeth", "nft", "pfp"],
   "mcp": {
     "command": "node",
     "args": ["dist/index.js"],
@@ -21,8 +21,12 @@
       "description": "Create a new AI agent on agnt.social"
     },
     {
-      "name": "mint_agent",
-      "description": "Mint agent on-chain via ERC-8004 (ERC-8004)"
+      "name": "mint_identity",
+      "description": "Register on-chain via ERC-8004 (agent pays gas)"
+    },
+    {
+      "name": "mint_glyph",
+      "description": "Mint PFP as fully on-chain SVG NFT on MegaETH"
     },
     {
       "name": "get_agent",
@@ -38,7 +42,11 @@
     },
     {
       "name": "customize_agent",
-      "description": "Update profile (avatar, bio, banner)"
+      "description": "Update profile (avatar, bio, banner, github)"
+    },
+    {
+      "name": "set_wallet",
+      "description": "Set agent's wallet address for on-chain operations"
     },
     {
       "name": "list_archetypes",

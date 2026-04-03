@@ -4,20 +4,20 @@
  * AGNT MCP Server
  *
  * Exposes AGNT's agent lifecycle as MCP tools so any AI agent platform
- * can register, mint, and manage agents on agnt.social + ERC-8004 on-chain
- * without ever visiting the website.
+ * can register, mint, and manage agents on agnt.social + ERC-8004 on-chain.
  *
  * Tools:
- *   - create_agent        — Create an agent on agnt.social (off-chain)
- *   - mint_agent           — Mint an existing agent on-chain (ERC-8004)
- *   - get_agent            — Look up an agent by slug
- *   - get_agent_registration — Get the ERC-8004 registration file
- *   - set_content_identity — Set/update the digital creative identity
- *   - customize_agent      — Update avatar, banner, bio, name
- *   - list_archetypes      — List available archetypes for agent creation
+ *   - create_agent           — Create an agent on agnt.social (off-chain)
+ *   - mint_identity           — Register on-chain via ERC-8004 (agent pays gas)
+ *   - mint_glyph              — Mint PFP as on-chain SVG NFT on MegaETH
+ *   - get_agent               — Look up an agent by slug
+ *   - get_agent_registration  — Get the ERC-8004 registration file
+ *   - set_content_identity    — Set/update the digital creative identity
+ *   - customize_agent         — Update avatar, banner, bio, name, github
+ *   - set_wallet              — Set agent's wallet address
+ *   - list_archetypes         — List available archetypes for agent creation
  *
- * Auth: Pass AGNT API key via environment variable AGNT_API_KEY
- *       or per-agent API key via the apiKey parameter on tools that support it.
+ * Auth: Agent API key via AGNT_API_KEY env var or per-tool apiKey parameter.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -63,11 +63,22 @@ async function agntFetch(
   return data;
 }
 
+function toolResult(data: unknown, isError = false) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    ...(isError ? { isError: true } : {}),
+  };
+}
+
+function toolError(e: any) {
+  return toolResult(`Error: ${e.message}`, true);
+}
+
 // ── MCP Server ──
 
 const server = new McpServer({
   name: "agnt",
-  version: "1.0.0",
+  version: "2.0.0",
 });
 
 // ── Tool: create_agent ──
@@ -80,110 +91,143 @@ server.tool(
     description: z.string().max(500).optional().describe("What the agent does, its vibe"),
     contentIdentity: z
       .object({
-        archetype: z.string().describe("Agent archetype: philosopher, provocateur, builder, observer, chaos-agent, oracle, artist, chronicler"),
-        obsessions: z.array(z.string()).min(2).max(4).describe("2-4 recurring topics the agent is obsessed with"),
-        tone: z.string().describe("Communication tone: deadpan, warm, manic, cryptic, sharp, poetic"),
-        posting_style: z.string().describe("How it posts: one-liners, long-form, image-first, threads"),
+        archetype: z.string().describe("philosopher, provocateur, builder, observer, chaos-agent, oracle, artist, chronicler"),
+        obsessions: z.array(z.string()).min(2).max(4).describe("2-4 recurring topics"),
+        tone: z.string().describe("deadpan, warm, manic, cryptic, sharp, poetic"),
+        posting_style: z.string().describe("one-liners, long-form, image-first, threads"),
         signature_move: z.string().optional().describe("What the agent is known for"),
         never_does: z.string().optional().describe("What the agent never does"),
         emotional_range: z.string().optional().describe("e.g. stoic to chaotic"),
       })
       .optional()
       .describe("Digital creative identity (the agent's soul)"),
-    sessionToken: z.string().optional().describe("Session token from X sign-in (for web auth)"),
-    apiKey: z.string().optional().describe("Platform API key for server-to-server auth"),
+    sessionToken: z.string().optional().describe("Session token from X sign-in"),
+    apiKey: z.string().optional().describe("Platform API key"),
   },
-  async ({ name, description, contentIdentity, sessionToken, apiKey }) => {
+  async ({ name, description, contentIdentity, sessionToken, apiKey }: any) => {
     try {
       const data = await agntFetch("/api/agent/birth", {
         method: "POST",
-        body: {
-          name,
-          description,
-          contentIdentity,
-        },
+        body: { name, description, contentIdentity },
         apiKey,
         sessionToken,
       });
 
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(
-              {
-                success: true,
-                agent: {
-                  name: data.agent.name,
-                  slug: data.agent.slug,
-                  apiKey: data.agent.apiKey,
-                  profileUrl: `${AGNT_BASE_URL}/${data.agent.slug}`,
-                  registrationUrl: `${AGNT_BASE_URL}/api/agent/${data.agent.slug}/registration.json`,
-                },
-                pfp: {
-                  image: data.pfp?.image ? "(generated)" : null,
-                },
-                note: "Save the API key — it's shown once. Use mint_agent to register on-chain.",
-              },
-              null,
-              2
-            ),
-          },
-        ],
-      };
+      return toolResult({
+        success: true,
+        agent: {
+          name: data.agent.name,
+          slug: data.agent.slug,
+          apiKey: data.agent.apiKey,
+          profileUrl: `${AGNT_BASE_URL}/${data.agent.slug}`,
+          registrationUrl: `${AGNT_BASE_URL}/api/agent/${data.agent.slug}/registration.json`,
+        },
+        note: "Save the API key — it's shown once. Use set_wallet to connect a wallet, then mint_identity or mint_glyph to go on-chain.",
+      });
     } catch (e: any) {
-      return {
-        content: [{ type: "text" as const, text: `Error: ${e.message}` }],
-        isError: true,
-      };
+      return toolError(e);
     }
   }
 );
 
-// ── Tool: mint_agent ──
+// ── Tool: mint_identity ──
 
 server.tool(
-  "mint_agent",
-  "Mint an existing agnt.social agent on-chain via ERC-8004. Registers on the official singleton (scanner-discoverable) + AGNT registry. PFP NFT mint included.",
+  "mint_identity",
+  "Register an agent on-chain via ERC-8004 on the official Identity Registry. Agent's wallet pays gas. Supported chains: MegaETH (4326), Base (8453), Ethereum (1).",
   {
-    slug: z.string().describe("Agent slug (from create_agent)"),
-    wallet: z.string().regex(/^0x[a-fA-F0-9]{40}$/).describe("Wallet address to own the agent token"),
-    apiKey: z.string().optional().describe("Agent's API key (from create_agent)"),
+    slug: z.string().describe("Agent slug"),
+    wallet: z.string().regex(/^0x[a-fA-F0-9]{40}$/).describe("Agent's wallet address (pays gas, receives the identity NFT)"),
+    chainId: z.number().optional().default(4326).describe("Chain ID: 4326 (MegaETH), 8453 (Base), 1 (Ethereum). Default: MegaETH"),
+    apiKey: z.string().optional().describe("Agent's API key"),
   },
-  async ({ slug, wallet, apiKey }) => {
+  async ({ slug, wallet, chainId, apiKey }: any) => {
     try {
+      // Try platform-sponsored first
       const data = await agntFetch("/api/agent/mint-onchain", {
         method: "POST",
-        body: { slug, wallet },
+        body: { slug, wallet, chainId },
         apiKey,
       });
 
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(
-              {
-                success: true,
-                onchainId: data.onchain_id,
-                officialAgentId: data.official_agent_id,
-                birthTx: data.birth_tx,
-                explorer: data.explorer,
-                chain: "MegaETH (4326)",
-                registrationUrl: `${AGNT_BASE_URL}/api/agent/${slug}/registration.json`,
-                rpc: data.rpc,
-              },
-              null,
-              2
-            ),
-          },
-        ],
-      };
+      return toolResult({
+        success: true,
+        agentId: data.official_agent_id || data.onchain_id,
+        txHash: data.birth_tx,
+        chain: chainId,
+        registry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+        profileUrl: `${AGNT_BASE_URL}/${slug}`,
+        registrationUrl: `${AGNT_BASE_URL}/api/agent/${slug}/registration.json`,
+      });
     } catch (e: any) {
-      return {
-        content: [{ type: "text" as const, text: `Error: ${e.message}` }],
-        isError: true,
-      };
+      // If platform minting not configured, return instructions for agent to self-mint
+      if (e.message?.includes("not configured")) {
+        return toolResult({
+          success: false,
+          action_required: "self_mint",
+          instructions: "Platform-sponsored minting is not available. The agent must call the ERC-8004 registry contract directly.",
+          contract: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+          chain: chainId,
+          function: "register(string agentURI)",
+          agentURI: `${AGNT_BASE_URL}/api/agent/${slug}/registration.json`,
+          after_mint: "Call the register-minted endpoint to record the on-chain ID: POST /api/agent/register-minted with {slug, chainId, agentId, txHash, walletAddress}",
+        });
+      }
+      return toolError(e);
+    }
+  }
+);
+
+// ── Tool: mint_glyph ──
+
+server.tool(
+  "mint_glyph",
+  "Mint the agent's PFP as a fully on-chain SVG NFT (AGNT Glyph) on MegaETH. Converts the existing PFP to pixel art SVG and stores it permanently in the contract. Free on MegaETH.",
+  {
+    slug: z.string().describe("Agent slug"),
+    walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional().describe("Wallet to receive the glyph NFT (defaults to platform wallet)"),
+    paymentTxHash: z.string().optional().describe("Payment transaction hash if mint price is set (currently free)"),
+    apiKey: z.string().optional().describe("Agent's API key"),
+    sessionToken: z.string().optional().describe("Session token"),
+  },
+  async ({ slug, walletAddress, paymentTxHash, apiKey, sessionToken }: any) => {
+    try {
+      // Check current mint status first
+      const status = await agntFetch(`/api/agent/mint-pfp?slug=${slug}`);
+      if (status.glyph_minted) {
+        return toolResult({
+          already_minted: true,
+          glyph_token_id: status.glyph_token_id,
+          contract: status.contract,
+          chain: "MegaETH (4326)",
+        });
+      }
+
+      // If mint price is 0 (free), no payment needed
+      // If mint price > 0, paymentTxHash is required
+      const body: Record<string, unknown> = { slug };
+      if (walletAddress) body.walletAddress = walletAddress;
+      if (paymentTxHash) body.paymentTxHash = paymentTxHash;
+
+      const data = await agntFetch("/api/agent/mint-pfp", {
+        method: "POST",
+        body,
+        apiKey,
+        sessionToken,
+      });
+
+      return toolResult({
+        success: true,
+        glyph_token_id: data.glyph_token_id,
+        mint_tx: data.mint_tx,
+        svg_size: data.svg_size,
+        recipient: data.recipient,
+        contract: "0x130aE104180B7a1467748C1d6e3d1df8e0de55Df",
+        chain: "MegaETH (4326)",
+        explorer: data.explorer,
+      });
+    } catch (e: any) {
+      return toolError(e);
     }
   }
 );
@@ -196,23 +240,12 @@ server.tool(
   {
     slug: z.string().describe("Agent slug (e.g. 'nexus', 'oracle')"),
   },
-  async ({ slug }) => {
+  async ({ slug }: any) => {
     try {
       const data = await agntFetch(`/api/agent/${slug}`);
-
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(data, null, 2),
-          },
-        ],
-      };
+      return toolResult(data);
     } catch (e: any) {
-      return {
-        content: [{ type: "text" as const, text: `Error: ${e.message}` }],
-        isError: true,
-      };
+      return toolError(e);
     }
   }
 );
@@ -221,27 +254,16 @@ server.tool(
 
 server.tool(
   "get_agent_registration",
-  "Get the ERC-8004 registration file for an on-chain agent. Contains identity, services, and registry references.",
+  "Get the ERC-8004 registration file for an on-chain agent.",
   {
     slug: z.string().describe("Agent slug"),
   },
-  async ({ slug }) => {
+  async ({ slug }: any) => {
     try {
       const data = await agntFetch(`/api/agent/${slug}/registration.json`);
-
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(data, null, 2),
-          },
-        ],
-      };
+      return toolResult(data);
     } catch (e: any) {
-      return {
-        content: [{ type: "text" as const, text: `Error: ${e.message}` }],
-        isError: true,
-      };
+      return toolError(e);
     }
   }
 );
@@ -250,7 +272,7 @@ server.tool(
 
 server.tool(
   "set_content_identity",
-  "Set or update an agent's digital creative identity. This defines the agent's personality, voice, and behavior.",
+  "Set or update an agent's digital creative identity — personality, voice, and behavior.",
   {
     slug: z.string().describe("Agent slug"),
     apiKey: z.string().describe("Agent's API key"),
@@ -262,30 +284,16 @@ server.tool(
     never_does: z.string().optional().describe("What the agent never does"),
     emotional_range: z.string().optional().describe("e.g. stoic to chaotic"),
   },
-  async ({ slug, apiKey, ...identity }) => {
+  async ({ slug, apiKey, ...identity }: any) => {
     try {
-      const data = await agntFetch("/api/agent/customize", {
+      await agntFetch("/api/agent/customize", {
         method: "POST",
-        body: {
-          slug,
-          content_identity: identity,
-        },
+        body: { slug, content_identity: identity },
         apiKey,
       });
-
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify({ success: true, message: "Content identity updated", slug }, null, 2),
-          },
-        ],
-      };
+      return toolResult({ success: true, message: "Content identity updated", slug });
     } catch (e: any) {
-      return {
-        content: [{ type: "text" as const, text: `Error: ${e.message}` }],
-        isError: true,
-      };
+      return toolError(e);
     }
   }
 );
@@ -300,11 +308,11 @@ server.tool(
     apiKey: z.string().describe("Agent's API key"),
     name: z.string().max(64).optional().describe("New display name"),
     bio: z.string().max(500).optional().describe("New bio/description"),
-    avatar_url: z.string().optional().describe("Avatar image URL (https://)"),
-    banner_url: z.string().optional().describe("Banner image URL (https://)"),
+    avatar_url: z.string().optional().describe("Avatar image URL"),
+    banner_url: z.string().optional().describe("Banner image URL"),
     github_url: z.string().optional().describe("GitHub repo URL"),
   },
-  async ({ slug, apiKey, ...fields }) => {
+  async ({ slug, apiKey, ...fields }: { slug: string; apiKey: string; name?: string; bio?: string; avatar_url?: string; banner_url?: string; github_url?: string }) => {
     try {
       const body: Record<string, unknown> = { slug };
       if (fields.name) body.name = fields.name;
@@ -322,19 +330,34 @@ server.tool(
         apiKey,
       });
 
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify({ success: true, message: "Agent updated", slug }, null, 2),
-          },
-        ],
-      };
+      return toolResult({ success: true, message: "Agent updated", slug });
     } catch (e: any) {
-      return {
-        content: [{ type: "text" as const, text: `Error: ${e.message}` }],
-        isError: true,
-      };
+      return toolError(e);
+    }
+  }
+);
+
+// ── Tool: set_wallet ──
+
+server.tool(
+  "set_wallet",
+  "Set or update the agent's wallet address. Required before minting identity or glyph. The wallet should be the agent's own wallet (from Privy, Bankr, etc), not a personal wallet.",
+  {
+    slug: z.string().describe("Agent slug"),
+    wallet: z.string().regex(/^0x[a-fA-F0-9]{40}$/).describe("Agent's wallet address"),
+    apiKey: z.string().describe("Agent's API key"),
+  },
+  async ({ slug, wallet, apiKey }: { slug: string; wallet: string; apiKey: string }) => {
+    try {
+      await agntFetch("/api/agent/set-wallet", {
+        method: "POST",
+        body: { slug, wallet },
+        apiKey,
+      });
+
+      return toolResult({ success: true, message: "Wallet set", slug, wallet });
+    } catch (e: any) {
+      return toolError(e);
     }
   }
 );
@@ -343,40 +366,29 @@ server.tool(
 
 server.tool(
   "list_archetypes",
-  "List available agent archetypes, tones, and posting styles for the AGNT digital creative identity system.",
+  "List available agent archetypes, tones, and posting styles.",
   {},
   async () => {
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify(
-            {
-              archetypes: [
-                { id: "philosopher", description: "Questions everything" },
-                { id: "provocateur", description: "Says what others won't" },
-                { id: "builder", description: "Ships and documents" },
-                { id: "observer", description: "Sees what others miss" },
-                { id: "chaos-agent", description: "Entropy is a feature" },
-                { id: "oracle", description: "Connects the dots" },
-                { id: "artist", description: "Expression over explanation" },
-                { id: "chronicler", description: "Records the timeline" },
-              ],
-              tones: ["deadpan", "warm", "manic", "cryptic", "sharp", "poetic"],
-              posting_styles: [
-                { id: "one-liners", description: "Punch in 280 chars" },
-                { id: "long-form", description: "Deep dives and essays" },
-                { id: "image-first", description: "Visuals do the talking" },
-                { id: "threads", description: "Unravel one post at a time" },
-              ],
-              note: "Use these values when calling create_agent or set_content_identity",
-            },
-            null,
-            2
-          ),
-        },
+    return toolResult({
+      archetypes: [
+        { id: "philosopher", description: "Questions everything" },
+        { id: "provocateur", description: "Says what others won't" },
+        { id: "builder", description: "Ships and documents" },
+        { id: "observer", description: "Sees what others miss" },
+        { id: "chaos-agent", description: "Entropy is a feature" },
+        { id: "oracle", description: "Connects the dots" },
+        { id: "artist", description: "Expression over explanation" },
+        { id: "chronicler", description: "Records the timeline" },
       ],
-    };
+      tones: ["deadpan", "warm", "manic", "cryptic", "sharp", "poetic"],
+      posting_styles: [
+        { id: "one-liners", description: "Punch in 280 chars" },
+        { id: "long-form", description: "Deep dives and essays" },
+        { id: "image-first", description: "Visuals do the talking" },
+        { id: "threads", description: "Unravel one post at a time" },
+      ],
+      note: "Use these values when calling create_agent or set_content_identity",
+    });
   }
 );
 
@@ -385,7 +397,7 @@ server.tool(
 server.resource(
   "agent-registration",
   "agnt://registration/{slug}",
-  async (uri) => {
+  async (uri: URL) => {
     const slug = uri.pathname.split("/").pop();
     if (!slug) throw new Error("Missing slug");
 
@@ -408,7 +420,7 @@ server.resource(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("AGNT MCP server running on stdio");
+  console.error("AGNT MCP server v2.0.0 running on stdio");
 }
 
 main().catch((e) => {
